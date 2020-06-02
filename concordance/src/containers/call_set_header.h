@@ -73,6 +73,7 @@ public:
 	void initialize(string, double, int);
 	void setTargets(string fsamples);
 	int getTruth(double, double, double, int);
+	int gtToDs(int, int);
 	int getFrequencyBin(float);
 	int getMostLikely(float , float , float );
 	int getCalibrationBin(float , float , float );
@@ -132,6 +133,19 @@ int call_set::getFrequencyBin(float prob) {
 		if (prob > bins[b-1] && prob <= bins[b]) return b-1;
 	}
 	return -1;
+}
+
+inline
+int call_set::gtToDs(int gt0, int gt1){
+    /*!
+     * Convert GTs as encded by 0, 1, or -1 to dosage.
+     * @param gt0: first allele count
+     * @param gt1: second allele count
+     */
+    if (gt0 < 0 || gt1 < 0) return -1;
+    else{
+        return gt0 + gt1;
+    }
 }
 
 #endif
