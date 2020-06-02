@@ -130,7 +130,8 @@ int call_set::getTruth(double pl0, double pl1, double pl2, int dp) {
 inline
 int call_set::getFrequencyBin(float prob) {
 	for (int b = 1 ; b < bins.size() ; b ++) {
-		if (prob > bins[b-1] && prob <= bins[b]) return b-1;
+	    if (prob == 0.0f) return 0;
+		else if (prob > bins[b-1] && prob <= bins[b]) return b-1;
 	}
 	return -1;
 }
