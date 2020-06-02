@@ -64,6 +64,8 @@ float pearson_prec(int n, vector<float>& x, vector<float>& y, float xMean, float
     return sum / (n * xStdDev1 * yStdDev1);
 }
 
+
+
 void call_set::readData(vector < string > & ftruth, vector < string > & festimated, vector < string > & ffrequencies, vector < string > & region, string info_af, int nthreads) {
 	tac.clock();
 	int n_true_samples, n_esti_samples;
@@ -147,11 +149,14 @@ void call_set::readData(vector < string > & ftruth, vector < string > & festimat
 		// pointers for the arrays holding retrieved field values
 		int *gl_arr_t = nullptr;
 		int *dp_arr_t = nullptr;
-        char* *gt_arr_t = nullptr;
+        int *gt_arr_t = nullptr;
 		float *af_ptr = nullptr;
 		float *ds_arr_e = nullptr;
 		float *gp_arr_e = nullptr;
+
+		// temp vars used when we need to flip allele frequencies (AF >0.5)
 		float float_swap;
+		int int_swap;
 
 		// to hold values for last arg to bcf_get_*
         int ngl_arr_t;
@@ -167,12 +172,13 @@ void call_set::readData(vector < string > & ftruth, vector < string > & festimat
 		vector < float > DSs = vector < float > (N, 0.0f);
 		vector < float > GPs = vector < float > (3*N, 0.0f);
 		vector < int > DPs = vector < int > (N, 0);
-		vector <char> GTs = vector<char>(N, 0);
+		vector <int> GTs = vector<int>(2*N, 0);
 
 		vector < float > sample_dosages(N);
 		vector < float > sample_truth(N);
 		float sum_ds_e = 0.0f;
 		float sum_ds_t = 0.0f;
+
 
 		map < string, pair < int, bool > > :: iterator itG;
 		bcf1_t * line_t, * line_e, * line_f;
@@ -193,7 +199,8 @@ void call_set::readData(vector < string > & ftruth, vector < string > & festimat
 					ngl_t = bcf_get_format_int32(sr->readers[0].header, line_t, "PL", &gl_arr_t, &ngl_arr_t);
 					ndp_t = bcf_get_format_int32(sr->readers[0].header, line_t, "DP", &dp_arr_t, &ndp_arr_t);
                     // GT
-                    ngt_t = bcf_get_format_string(sr->readers[0].header, line_t, "GT", &gt_arr_t, &ngt_arr_t);
+                    //ngt_t = bcf_get_format_string(sr->readers[0].header, line_t, "GT", &gt_arr_t, &ngt_arr_t);
+                    ngt_t = bcf_get_genotypes(sr->readers[0].header, line_t, &gt_arr_t, &ngt_arr_t);
 
                     nds_e = bcf_get_format_float(sr->readers[1].header, line_e, "DS", &ds_arr_e, &nds_arr_e);
 					ngp_e = bcf_get_format_float(sr->readers[1].header, line_e, "GP", &gp_arr_e, &ngp_arr_e);
@@ -222,32 +229,60 @@ void call_set::readData(vector < string > & ftruth, vector < string > & festimat
 							}
 						}
 
+						printf("pos:%lld\t", line_t->pos + 1);
+                        printf("ngt_arr_t: %d ", ngt_t);
+
 						// Read Truth
 						for(int i = 0 ; i < n_true_samples ; i ++) {
 							int idx = mappingT[i];
 							if (idx >= 0) {
-                                // if truth genotypes has
+                                // if truth genotypes has GLs consider it valid
 								if (gl_arr_t[3*i+0] != bcf_int32_missing && gl_arr_t[3*i+1] != bcf_int32_missing && gl_arr_t[3*i+2] != bcf_int32_missing) {
 								    // compute PLs off GLs
 								    PLs[3*idx+0] = unphred[min(gl_arr_t[3*i+0], 255)];
 									PLs[3*idx+1] = unphred[min(gl_arr_t[3*i+1], 255)];
 									PLs[3*idx+2] = unphred[min(gl_arr_t[3*i+2], 255)];
 
-									// grab genotypes
+									// grab genotypes, convert to alt allelic dosage
+									GTs[2*idx+0] = bcf_gt_allele(gt_arr_t[2*idx+0]);
+                                    GTs[2*idx+1] = bcf_gt_allele(gt_arr_t[2*idx+1]);
 
 									// fill in DPs
 									if (dp_arr_t[i]!= bcf_int32_missing){
 									    DPs[idx] = dp_arr_t[i];
 									}
 									else DPs[idx] = 0;
+
+									// if AF is >0.5 then need to flip
 									if (flip) {
+									    // swap PLs
 									    float_swap = PLs[3*idx+2];
 									    PLs[3*idx+2] = PLs[3*idx+0];
 									    PLs[3*idx+0] = float_swap;
+
+									    // swap GTs
+									    int_swap = GTs[2*idx+1];
+									    GTs[2*idx+1] = GTs[2*idx+0];
+									    GTs[2*idx+0] = int_swap;
 									}
-								} else { PLs[3*idx+0] = -1.0f; PLs[3*idx+1] = -1.0f; PLs[3*idx+2] = -1.0f; }
+								}
+								// if missing PLs then set -1
+								else {
+								    PLs[3*idx+0] = -1.0f;
+								    PLs[3*idx+1] = -1.0f;
+								    PLs[3*idx+2] = -1.0f;
+
+								    GTs[2*idx+0] = -1;
+                                    GTs[2*idx+1] = -1;
+								}
+
+//                                // print elemtns
+//                                printf("(%d ", GTs[2 *idx + 0]);
+//                                printf("%d ", GTs[2 * idx + 1]);
+//                                printf("%d ) ", gtToDs(GTs[2*idx+0], GTs[2*idx+1]));
 							}
 						}
+                        printf("\n");
 
 						// Read Estimates
 						for(int i = 0 ; i < n_esti_samples ; i ++) {
@@ -269,10 +304,12 @@ void call_set::readData(vector < string > & ftruth, vector < string > & festimat
 						// Process variant
 						if (grp_bin >= 0) {	// Do this variant fall within a given frequency bin?
 							for (int i = 0 ; i < N ; i ++) {
-								int true_genotype = getTruth(PLs[3*i+0], PLs[3*i+1], PLs[3*i+2], DPs[i]);
+							    // get true genotype
+//                                 int true_genotype = getTruth(PLs[3*i+0], PLs[3*i+1], PLs[3*i+2], DPs[i]);
+								int true_genotype = gtToDs(GTs[2*i+0], GTs[2*i+1]);
 
 								// if true_genotype is NOT VALID (i.e. getTruth returns -1), then it skips the sample variant
-								if (true_genotype >= 0) { // <--- TODO: OK, here is where some are getting filtered out.
+								if (true_genotype >= 0) {
 									int esti_genotype = getMostLikely(GPs[3*i+0], GPs[3*i+1], GPs[3*i+2]);
 									int cal_bin = getCalibrationBin(GPs[3*i+0], GPs[3*i+1], GPs[3*i+2]);
 
@@ -317,7 +354,9 @@ void call_set::readData(vector < string > & ftruth, vector < string > & festimat
 									ngenoval ++;
 									ngenoval1 ++;
 								}
-                                else {ngenoval1 ++;}
+								else {
+                                    ngenoval1 ++;
+                                }
 							}
 							// [6] Compute Rsquare variant and update data
 							float xMean = mean(N, DSs);
@@ -343,6 +382,7 @@ void call_set::readData(vector < string > & ftruth, vector < string > & festimat
 		free(gl_arr_t);
 		free(ds_arr_e);
 		free(gp_arr_e);
+		free(gt_arr_t);
 		bcf_sr_destroy(sr);
 		n_variants_all_chromosomes += nvariantval;
 		vrb.bullet("#variants in the overlap = " + stb.str(nvarianttot));
