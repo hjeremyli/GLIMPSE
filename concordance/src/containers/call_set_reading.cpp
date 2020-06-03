@@ -179,8 +179,7 @@ void call_set::readData(vector < string > & ftruth, vector < string > & festimat
 		float sum_ds_e = 0.0f;
 		float sum_ds_t = 0.0f;
 
-
-		map < string, pair < int, bool > > :: iterator itG;
+        map < string, pair < int, bool > > :: iterator itG;
 		bcf1_t * line_t, * line_e, * line_f;
 		// loop through each variant
 		while ((nset = bcf_sr_next_line (sr))) {
@@ -211,6 +210,7 @@ void call_set::readData(vector < string > & ftruth, vector < string > & festimat
 					// check that the number of each of these fields is correct.
 					// seemingly, naf_f is the number of AF fields with nonzero values. so it will skip 0 af sites
 					//if ((naf_f==1)&&(ngl_t==3*n_true_samples)&&(nds_e==n_esti_samples)&&(ngp_e==3*n_esti_samples)&&(ndp_t==n_true_samples)) {
+
                     if ((ngl_t==3*n_true_samples)&&(nds_e==n_esti_samples)&&(ngp_e==3*n_esti_samples)&&(ndp_t==n_true_samples)) {
 						// Meta data for variant
 						float af =  af_ptr[0];
@@ -230,7 +230,7 @@ void call_set::readData(vector < string > & ftruth, vector < string > & festimat
 						}
 
 						//printf("%d", line_t->n_sample);
-                        printf("%d ", ngt_t);
+                        //printf("%d\n", ngt_t);
 
 						// Read Truth
 						for(int i = 0 ; i < n_true_samples ; i ++) {
@@ -260,10 +260,10 @@ void call_set::readData(vector < string > & ftruth, vector < string > & festimat
 									    PLs[3*idx+2] = PLs[3*idx+0];
 									    PLs[3*idx+0] = float_swap;
 
-									    // swap GTs
-									    int_swap = GTs[2*idx+1];
-									    GTs[2*idx+1] = GTs[2*idx+0];
-									    GTs[2*idx+0] = int_swap;
+//									    // swap GTs
+//									    int_swap = GTs[2*idx+1];
+//									    GTs[2*idx+1] = GTs[2*idx+0];
+//									    GTs[2*idx+0] = int_swap;
 									}
 								}
 								// if missing PLs then set -1
@@ -306,7 +306,8 @@ void call_set::readData(vector < string > & ftruth, vector < string > & festimat
 							for (int i = 0 ; i < N ; i ++) {
 							    // get true genotype
 //                                 int true_genotype = getTruth(PLs[3*i+0], PLs[3*i+1], PLs[3*i+2], DPs[i]);
-								int true_genotype = gtToDs(GTs[2*i+0], GTs[2*i+1]);
+
+								int true_genotype = gtToDs(GTs[2*i+0], GTs[2*i+1], flip);
 
 								// if true_genotype is NOT VALID (i.e. getTruth returns -1), then it skips the sample variant
 								if (true_genotype >= 0) {
@@ -337,7 +338,8 @@ void call_set::readData(vector < string > & ftruth, vector < string > & festimat
 									case 2:	genotype_cal_errors[3*cal_bin+2] += (esti_genotype != 2); genotype_cal_totals[3*cal_bin+2]++; break;
 									}
 
-									// [4] Update Rsquare per bin
+
+                                    // [4] Update Rsquare per bin
 									rsquared_bin[grp_bin].push(DSs[i], true_genotype*1.0f);
 									frequency_bin[grp_bin].push(maf);
 
@@ -357,6 +359,8 @@ void call_set::readData(vector < string > & ftruth, vector < string > & festimat
 								else {
                                     ngenoval1 ++;
                                 }
+
+								//printf("\n");
 							}
 							// [6] Compute Rsquare variant and update data
 							float xMean = mean(N, DSs);
