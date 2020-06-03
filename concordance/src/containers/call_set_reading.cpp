@@ -229,8 +229,8 @@ void call_set::readData(vector < string > & ftruth, vector < string > & festimat
 							}
 						}
 
-						printf("pos:%lld\t", line_t->pos + 1);
-                        printf("ngt_arr_t: %d ", ngt_t);
+						//printf("%d", line_t->n_sample);
+                        printf("%d ", ngt_t);
 
 						// Read Truth
 						for(int i = 0 ; i < n_true_samples ; i ++) {
@@ -282,7 +282,7 @@ void call_set::readData(vector < string > & ftruth, vector < string > & festimat
 //                                printf("%d ) ", gtToDs(GTs[2*idx+0], GTs[2*idx+1]));
 							}
 						}
-                        printf("\n");
+//                        printf("\n");
 
 						// Read Estimates
 						for(int i = 0 ; i < n_esti_samples ; i ++) {
