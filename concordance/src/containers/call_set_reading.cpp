@@ -230,7 +230,7 @@ void call_set::readData(vector < string > & ftruth, vector < string > & festimat
 						}
 
 						//printf("%d", line_t->n_sample);
-                        //printf("%d\n", ngt_t);
+//                        printf("%d\n", ngt_t);
 
 						// Read Truth
 						for(int i = 0 ; i < n_true_samples ; i ++) {
